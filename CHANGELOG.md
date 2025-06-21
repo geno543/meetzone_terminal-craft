@@ -14,10 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive hidden imports for textual.widgets.tab_pane and related modules
 - Fixed "No module named 'textual.widgets.tab_pane'" error in executables
 - Enhanced build process with --collect-all=textual flag for complete module inclusion
+- Fixed Windows PowerShell compatibility issues with PyInstaller command line arguments
 
 ### Changed
 - Improved PyInstaller configuration with explicit Textual module imports
 - Enhanced build reliability across all platforms (Windows, macOS, Linux)
+- Consolidated Windows PyInstaller command to single line for PowerShell compatibility
 
 ## [v1.0.1] - 2025-01-27
 
