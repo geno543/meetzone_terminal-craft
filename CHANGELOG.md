@@ -9,17 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.0.2] - 2025-01-27
 
+### Added
+- Comprehensive error handling and debug logging for executable troubleshooting
+- Enhanced executable startup diagnostics with detailed error reporting
+- Debug log file creation (`meet-zone-debug.log`) for troubleshooting
+- Error dialog display using tkinter for better user feedback
+- System information logging (Python version, platform, executable status)
+- Critical import testing with detailed error messages
+
 ### Fixed
 - Fixed PyInstaller build configuration to include all required Textual modules
 - Added comprehensive hidden imports for textual.widgets.tab_pane and related modules
 - Fixed "No module named 'textual.widgets.tab_pane'" error in executables
 - Enhanced build process with --collect-all=textual flag for complete module inclusion
 - Fixed Windows PowerShell compatibility issues with PyInstaller command line arguments
+- Added missing tkinter and logging imports for error handling
 
 ### Changed
 - Improved PyInstaller configuration with explicit Textual module imports
 - Enhanced build reliability across all platforms (Windows, macOS, Linux)
 - Consolidated Windows PyInstaller command to single line for PowerShell compatibility
+- Enhanced main entry point with comprehensive exception handling
+- Improved error reporting with both console output and GUI dialogs
 
 ## [v1.0.1] - 2025-01-27
 
