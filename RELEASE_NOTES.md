@@ -1,69 +1,64 @@
-# Release Notes for v1.0.1
+# Release Notes for v1.0.2
 
-## Meet-Zone v1.0.1 - Enhanced UI and Improved Functionality
+## Meet-Zone v1.0.2 - Fixed Executable Build
 
-### What's New
+### 🎉 What's Fixed
 
-**Enhanced User Interface**
-- Improved tabbed interface with better navigation
-- Enhanced participant management with clearer form validation
-- Better visual feedback with color-coded status messages
-- Improved UI layout with better responsive design
+**Critical Bug Fixes**
+- ✅ **Fixed "No module named 'textual.widgets.tab_pane'" error** in executables
+- ✅ **Resolved PyQt5/PyQt6 conflicts** during PyInstaller build process
+- ✅ **Added comprehensive hidden imports** for all Textual modules
+- ✅ **Enhanced build process** with --collect-all=textual flag
 
-**Better Error Handling**
-- Enhanced time parsing validation
-- Improved error messages and user feedback
-- Better handling of edge cases in meeting slot calculation
+**Improved Error Handling**
+- ✅ **Added comprehensive debug logging** with meet-zone-debug.log
+- ✅ **Enhanced startup diagnostics** with detailed error reporting
+- ✅ **Added error dialogs** using tkinter for better user feedback
+- ✅ **Improved exception handling** throughout the application
 
-**Improved Functionality**
-- Enhanced meeting slot scoring algorithm with configurable prioritization
-- Better meeting time calculation with more accurate availability detection
-- Comprehensive timezone selection list
-- Fixed participant removal functionality
-
-### Installation
+### 📥 Installation
 
 Download the appropriate executable for your operating system:
 
-- **Windows**: `meet-zone-windows-1.0.1.exe`
-- **macOS**: `meet-zone-macos-1.0.1`
-- **Linux**: `meet-zone-linux-1.0.1`
+- **Windows**: `meet-zone-windows-1.0.2.exe`
+- **macOS**: `meet-zone-macos-1.0.2`
+- **Linux**: `meet-zone-linux-1.0.2`
 
-### Verification
-
-Each release includes SHA256 checksums for verification:
-
-```bash
-# Windows (PowerShell)
-Get-FileHash -Algorithm SHA256 meet-zone-windows-1.0.1.exe
-
-# macOS/Linux
-shasum -a 256 meet-zone-macos-1.0.1
-sha256sum meet-zone-linux-1.0.1
-```
-
-### Usage
+### 🚀 Usage
 
 ```bash
 # Windows
-.\meet-zone-windows-1.0.1.exe
+.\meet-zone-windows-1.0.2.exe
 
 # macOS (make executable first)
-chmod +x meet-zone-macos-1.0.1
-./meet-zone-macos-1.0.1
+chmod +x meet-zone-macos-1.0.2
+./meet-zone-macos-1.0.2
 
 # Linux (make executable first)
-chmod +x meet-zone-linux-1.0.1
-./meet-zone-linux-1.0.1
+chmod +x meet-zone-linux-1.0.2
+./meet-zone-linux-1.0.2
 ```
 
-### What's Fixed
+### 🔧 What's New Under the Hood
 
-- Fixed time parsing validation issues
-- Improved participant removal functionality
-- Better handling of edge cases in meeting slot calculation
-- Fixed UI responsiveness issues
+- **Fixed PyInstaller Configuration**: Excludes conflicting Qt packages
+- **Comprehensive Module Inclusion**: All Textual widgets and containers
+- **Debug Logging**: Creates detailed logs for troubleshooting
+- **Better Error Messages**: Clear feedback when things go wrong
+- **Cross-Platform Compatibility**: Improved build process for all platforms
 
-### Full Changelog
+### 🐛 Troubleshooting
+
+If you encounter issues:
+
+1. **Check the debug log**: Look for `meet-zone-debug.log` in the same directory
+2. **Run from command line**: This will show any error messages
+3. **Verify file permissions**: Make sure the executable has run permissions
+
+### 📝 Full Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for complete version history.
+
+---
+
+**This release finally delivers working executables for all platforms!** 🎉
