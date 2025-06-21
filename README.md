@@ -55,7 +55,7 @@ git clone https://github.com/yourusername/meet-zone.git
 cd meet-zone
 
 # Install the package in development mode
-pip install -e .
+python -m pip install -e .
 ```
 
 ## Requirements
@@ -147,7 +147,7 @@ To build the executable from source:
 
 1. Install PyInstaller and other build dependencies:
    ```bash
-   pip install pyinstaller cairosvg pillow
+   python -m pip install pyinstaller cairosvg pillow
    ```
 
 2. Build the executable:
