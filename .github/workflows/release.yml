@@ -115,7 +115,7 @@ jobs:
       
       - name: Build Windows executable
         run: |
-          python -m PyInstaller --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath --hidden-import=textual --hidden-import=textual.app --hidden-import=textual.widgets --hidden-import=textual.widgets.button --hidden-import=textual.widgets.data_table --hidden-import=textual.widgets.footer --hidden-import=textual.widgets.header --hidden-import=textual.widgets.input --hidden-import=textual.widgets.label --hidden-import=textual.widgets.select --hidden-import=textual.widgets.static --hidden-import=textual.widgets.tabbed_content --hidden-import=textual.widgets.tab_pane --hidden-import=textual.containers --hidden-import=textual.containers.container --hidden-import=textual.containers.horizontal --hidden-import=textual.containers.vertical --hidden-import=textual.reactive --hidden-import=textual.validation --hidden-import=textual.coordinate --hidden-import=pytz --collect-all=textual src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath --hidden-import=textual --hidden-import=textual.app --hidden-import=textual.widgets --hidden-import=textual.widgets.button --hidden-import=textual.widgets.data_table --hidden-import=textual.widgets.footer --hidden-import=textual.widgets.header --hidden-import=textual.widgets.input --hidden-import=textual.widgets.label --hidden-import=textual.widgets.select --hidden-import=textual.widgets.static --hidden-import=textual.widgets.tabbed_content --hidden-import=textual.widgets.tab_pane --hidden-import=textual.containers --hidden-import=textual.containers.container --hidden-import=textual.containers.horizontal --hidden-import=textual.containers.vertical --hidden-import=textual.reactive --hidden-import=textual.validation --hidden-import=textual.coordinate --hidden-import=pytz --hidden-import=tkinter --hidden-import=tkinter.messagebox --hidden-import=logging --collect-all=textual src/meet_zone/__main__.py
       
       - name: Generate checksum
         shell: powershell
@@ -189,6 +189,9 @@ jobs:
             --hidden-import=textual.validation \
             --hidden-import=textual.coordinate \
             --hidden-import=pytz \
+            --hidden-import=tkinter \
+            --hidden-import=tkinter.messagebox \
+            --hidden-import=logging \
             --collect-all=textual \
             src/meet_zone/__main__.py
       
@@ -264,6 +267,9 @@ jobs:
             --hidden-import=textual.validation \
             --hidden-import=textual.coordinate \
             --hidden-import=pytz \
+            --hidden-import=tkinter \
+            --hidden-import=tkinter.messagebox \
+            --hidden-import=logging \
             --collect-all=textual \
             src/meet_zone/__main__.py
       
@@ -404,6 +410,8 @@ jobs:
             - **Fixed "No module named 'textual.widgets.tab_pane'" error** in executables
             - **Enhanced build process** with --collect-all=textual flag for complete module inclusion
             - **Improved build reliability** across all platforms (Windows, macOS, Linux)
+            - **Added comprehensive error handling and debug logging** for troubleshooting
+            - **Enhanced executable startup diagnostics** with detailed error reporting
             
             ## 📥 Downloads
             
@@ -432,6 +440,32 @@ jobs:
             
             # Run
             ./meet-zone-macos-${{ needs.get-version.outputs.version }}
+            ```
+            
+            ## 🐛 Troubleshooting
+            
+            If the executable doesn't start:
+            
+            1. **Check the debug log**: Look for `meet-zone-debug.log` in the same directory as the executable
+            2. **Run from command line**: This will show any error messages
+            3. **Check system requirements**: Ensure you have the required system libraries
+            
+            ### Windows Troubleshooting
+            ```cmd
+            # Run from Command Prompt to see errors
+            meet-zone-windows-${{ needs.get-version.outputs.version }}.exe
+            
+            # Check the debug log
+            type meet-zone-debug.log
+            ```
+            
+            ### macOS/Linux Troubleshooting
+            ```bash
+            # Run from terminal to see errors
+            ./meet-zone-macos-${{ needs.get-version.outputs.version }}
+            
+            # Check the debug log
+            cat meet-zone-debug.log
             ```
             
             ## 🔐 Verification
@@ -476,7 +510,10 @@ jobs:
             
             ## 🐛 Bug Reports
             
-            Found a bug? Please [open an issue](https://github.com/${{ github.repository }}/issues) with details about your system and the problem.
+            Found a bug? Please [open an issue](https://github.com/${{ github.repository }}/issues) with:
+            - Your operating system and version
+            - The contents of `meet-zone-debug.log`
+            - Steps to reproduce the problem
             
             ## 📝 Full Changelog
             
