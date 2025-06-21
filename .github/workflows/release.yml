@@ -77,9 +77,23 @@ jobs:
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
       
+      - name: Create icon files
+        run: |
+          echo "Creating placeholder icon files..."
+          # Create a simple ICO file (placeholder)
+          python -c "
+          from PIL import Image
+          import io
+          
+          # Create a simple 32x32 icon
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.ico', format='ICO')
+          print('Created icon.ico')
+          "
+      
       - name: Build Windows executable
         run: |
-          python -m PyInstaller --name="meet-zone-windows-${{ needs.create-tag.outputs.version }}" --onefile --windowed --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-windows-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Generate checksum
         shell: powershell
@@ -113,9 +127,20 @@ jobs:
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
       
+      - name: Create icon file
+        run: |
+          python -c "
+          from PIL import Image
+          
+          # Create a simple 32x32 PNG icon
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.png', format='PNG')
+          print('Created icon.png')
+          "
+      
       - name: Build macOS executable
         run: |
-          python -m PyInstaller --name="meet-zone-macos-${{ needs.create-tag.outputs.version }}" --onefile --windowed --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-macos-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
@@ -149,9 +174,20 @@ jobs:
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
       
+      - name: Create icon file
+        run: |
+          python -c "
+          from PIL import Image
+          
+          # Create a simple 32x32 PNG icon
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.png', format='PNG')
+          print('Created icon.png')
+          "
+      
       - name: Build Linux executable
         run: |
-          python -m PyInstaller --name="meet-zone-linux-${{ needs.create-tag.outputs.version }}" --onefile --windowed --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-linux-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
@@ -173,16 +209,54 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
+          fetch-depth: 0
+      
+      - name: Debug - List files
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          echo "Git status:"
+          git status || echo "Git status failed"
+          echo "Current commit:"
+          git rev-parse HEAD || echo "Git rev-parse failed"
       
       - name: Create source archives
         run: |
-          zip -r meet-zone-source-${{ needs.create-tag.outputs.version }}.zip . -x "*.git*" "dist/*" "__pycache__/*" "*.pyc"
-          tar czf meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz --exclude=".git" --exclude="dist" --exclude="__pycache__" --exclude="*.pyc" .
+          echo "Creating source archives..."
+          
+          # Create ZIP archive excluding unnecessary files
+          zip -r meet-zone-source-${{ needs.create-tag.outputs.version }}.zip . \
+            -x "*.git*" \
+            -x "dist/*" \
+            -x "*/__pycache__/*" \
+            -x "*.pyc" \
+            -x "*.pyo" \
+            -x ".DS_Store" \
+            -x "*.log"
+          
+          # Create TAR.GZ archive excluding unnecessary files  
+          tar czf meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz \
+            --exclude=".git" \
+            --exclude="dist" \
+            --exclude="__pycache__" \
+            --exclude="*.pyc" \
+            --exclude="*.pyo" \
+            --exclude=".DS_Store" \
+            --exclude="*.log" \
+            .
+          
+          echo "Archives created successfully:"
+          ls -la meet-zone-source-*
       
       - name: Generate checksums
         run: |
+          echo "Generating checksums..."
           sha256sum meet-zone-source-${{ needs.create-tag.outputs.version }}.zip > meet-zone-source-${{ needs.create-tag.outputs.version }}.zip.sha256
           sha256sum meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz > meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz.sha256
+          
+          echo "Checksums created:"
+          cat meet-zone-source-${{ needs.create-tag.outputs.version }}.zip.sha256
+          cat meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz.sha256
       
       - name: Upload source artifacts
         uses: actions/upload-artifact@v4
@@ -211,6 +285,7 @@ jobs:
         run: |
           mkdir -p release-files
           find artifacts -type f -exec cp {} release-files/ \;
+          echo "Release files prepared:"
           ls -la release-files/
       
       - name: Create Release
