@@ -11,192 +11,158 @@ on:
         required: false
         default: 'dev'
 
-# Strip “v” off a push tag, or use the manual input
+# Strip leading “v” or use manual input
 env:
   VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
 
 jobs:
   build-windows:
     runs-on: windows-latest
-    env:
-      VERSION: ${{ env.VERSION }}
+    env: { VERSION: ${{ env.VERSION }} }
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install dependencies
+        with: { python-version: '3.10' }
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
-      - name: Convert SVG to ICO
+      - name: Build .exe
         run: |
-          python -c "from cairosvg import svg2png; from PIL import Image; svg2png(url='icon.svg', write_to='icon.png'); Image.open('icon.png').save('icon.ico')"
-      - name: Build executable
-        run: |
-          pyinstaller \
+          python -m PyInstaller \
             --name="meet-zone-windows-${{ env.VERSION }}" \
             --onefile --windowed \
             --icon=icon.ico \
             --add-data="roster.csv;." \
             --hidden-import=zoneinfo.tzpath \
-            --hidden-import=pkg_resources.py2_warn \
             src/meet_zone/__main__.py
-      - name: Generate SHA256 checksum
+      - name: Checksum
         shell: powershell
         run: |
-          Get-FileHash -Algorithm SHA256 -Path "dist/meet-zone-windows-${{ env.VERSION }}.exe" |
-            Select-Object -ExpandProperty Hash > "dist/meet-zone-windows-${{ env.VERSION }}.exe.sha256"
-      - name: Upload artifact
+          Get-FileHash dist/meet-zone-windows-${{ env.VERSION }}.exe -Algorithm SHA256 |
+            Select -Expand Hash > dist/meet-zone-windows-${{ env.VERSION }}.exe.sha256
+      - name: Upload Windows
         uses: actions/upload-artifact@v3
         with:
-          name: meet-zone-windows-${{ env.VERSION }}
+          name: win-${{ env.VERSION }}
           path: |
             dist/meet-zone-windows-${{ env.VERSION }}.exe
             dist/meet-zone-windows-${{ env.VERSION }}.exe.sha256
 
   build-macos:
     runs-on: macos-latest
-    env:
-      VERSION: ${{ env.VERSION }}
+    env: { VERSION: ${{ env.VERSION }} }
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install dependencies
+        with: { python-version: '3.10' }
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
-      - name: Convert SVG to PNG
+      - name: Build macOS
         run: |
-          python -c "from cairosvg import svg2png; svg2png(url='icon.svg', write_to='icon.png')"
-      - name: Build executable
-        run: |
-          pyinstaller \
+          python3 -m PyInstaller \
             --name="meet-zone-macos-${{ env.VERSION }}" \
             --onefile --windowed \
             --icon=icon.png \
             --add-data="roster.csv:." \
             --hidden-import=zoneinfo.tzpath \
-            --hidden-import=pkg_resources.py2_warn \
             src/meet_zone/__main__.py
-      - name: Make executable
-        run: chmod +x "dist/meet-zone-macos-${{ env.VERSION }}"
-      - name: Generate SHA256 checksum
+      - name: Make EXE & checksum
         run: |
-          shasum -a 256 "dist/meet-zone-macos-${{ env.VERSION }}" > "dist/meet-zone-macos-${{ env.VERSION }}.sha256"
-      - name: Upload artifact
+          chmod +x dist/meet-zone-macos-${{ env.VERSION }}
+          shasum -a 256 dist/meet-zone-macos-${{ env.VERSION }} \
+            > dist/meet-zone-macos-${{ env.VERSION }}.sha256
+      - name: Upload macOS
         uses: actions/upload-artifact@v3
         with:
-          name: meet-zone-macos-${{ env.VERSION }}
+          name: mac-${{ env.VERSION }}
           path: |
             dist/meet-zone-macos-${{ env.VERSION }}
             dist/meet-zone-macos-${{ env.VERSION }}.sha256
 
   build-linux:
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ env.VERSION }}
+    env: { VERSION: ${{ env.VERSION }} }
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install dependencies
+        with: { python-version: '3.10' }
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
-      - name: Convert SVG to PNG
+      - name: Build Linux
         run: |
-          python -c "from cairosvg import svg2png; svg2png(url='icon.svg', write_to='icon.png')"
-      - name: Build executable
-        run: |
-          pyinstaller \
+          python3 -m PyInstaller \
             --name="meet-zone-linux-${{ env.VERSION }}" \
             --onefile --windowed \
             --icon=icon.png \
             --add-data="roster.csv:." \
             --hidden-import=zoneinfo.tzpath \
-            --hidden-import=pkg_resources.py2_warn \
             src/meet_zone/__main__.py
-      - name: Make executable
-        run: chmod +x "dist/meet-zone-linux-${{ env.VERSION }}"
-      - name: Generate SHA256 checksum
+      - name: Make EXE & checksum
         run: |
-          sha256sum "dist/meet-zone-linux-${{ env.VERSION }}" > "dist/meet-zone-linux-${{ env.VERSION }}.sha256"
-      - name: Upload artifact
+          chmod +x dist/meet-zone-linux-${{ env.VERSION }}
+          sha256sum dist/meet-zone-linux-${{ env.VERSION }} \
+            > dist/meet-zone-linux-${{ env.VERSION }}.sha256
+      - name: Upload Linux
         uses: actions/upload-artifact@v3
         with:
-          name: meet-zone-linux-${{ env.VERSION }}
+          name: linux-${{ env.VERSION }}
           path: |
             dist/meet-zone-linux-${{ env.VERSION }}
             dist/meet-zone-linux-${{ env.VERSION }}.sha256
 
-  create-source-archives:
+  create-source:
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ env.VERSION }}
+    env: { VERSION: ${{ env.VERSION }} }
     steps:
       - uses: actions/checkout@v3
-      - name: Create ZIP archive
+      - name: Make source archives
         run: |
-          zip -r "meet-zone-source-${{ env.VERSION }}.zip" . \
-            -x "*.git*" "*__pycache__*" "*.pytest_cache*" "*.venv*" "dist/*" "build/*"
-      - name: Create TAR.GZ archive
+          zip -r meet-zone-source-${{ env.VERSION }}.zip . -x "*.git*" "dist/*"
+          tar czf meet-zone-source-${{ env.VERSION }}.tar.gz . --exclude=".git" --exclude="dist"
+      - name: Checksums & upload
         run: |
-          tar --exclude=".git" --exclude="__pycache__" --exclude=".pytest_cache" \
-              --exclude=".venv" --exclude="dist" --exclude="build" \
-            -czf "meet-zone-source-${{ env.VERSION }}.tar.gz" .
-      - name: Generate SHA256 checksums
-        run: |
-          sha256sum "meet-zone-source-${{ env.VERSION }}.zip" > "meet-zone-source-${{ env.VERSION }}.zip.sha256"
-          sha256sum "meet-zone-source-${{ env.VERSION }}.tar.gz" > "meet-zone-source-${{ env.VERSION }}.tar.gz.sha256"
-      - name: Upload artifacts
+          sha256sum meet-zone-source-${{ env.VERSION }}.zip  > .zip.sha256
+          sha256sum meet-zone-source-${{ env.VERSION }}.tar.gz > .tar.gz.sha256
+        shell: bash
+      - name: Upload source
         uses: actions/upload-artifact@v3
         with:
-          name: source-code-${{ env.VERSION }}
+          name: src-${{ env.VERSION }}
           path: |
             meet-zone-source-${{ env.VERSION }}.zip
             meet-zone-source-${{ env.VERSION }}.zip.sha256
             meet-zone-source-${{ env.VERSION }}.tar.gz
             meet-zone-source-${{ env.VERSION }}.tar.gz.sha256
 
-  create-release:
-    needs:
-      - build-windows
-      - build-macos
-      - build-linux
-      - create-source-archives
+  publish-release:
+    needs: [build-windows, build-macos, build-linux, create-source]
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ env.VERSION }}
+    env: { VERSION: ${{ env.VERSION }} }
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v3
-
-      - name: Gather artifacts into root
+      - name: Gather into root
         run: |
-          cp -r meet-zone-windows-${{ env.VERSION }}/dist/* .
-          cp -r meet-zone-macos-${{ env.VERSION }}/dist/* .
-          cp -r meet-zone-linux-${{ env.VERSION }}/dist/* .
-          cp source-code-${{ env.VERSION }}/* .
-
-      - name: List files
-        run: find . -maxdepth 1 -type f | sort
-
-      - name: Create GitHub Release
-        if: github.event_name != 'workflow_dispatch'
+          for plat in win-${{ env.VERSION }} mac-${{ env.VERSION }} linux-${{ env.VERSION }}; do
+            cp $plat/dist/* .
+          done
+          cp src-${{ env.VERSION }}/* .
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
-          name: "Build and Release ${{ env.VERSION }}"
+          name: "v${{ env.VERSION }}"
           files: |
             meet-zone-windows-${{ env.VERSION }}.exe
             meet-zone-windows-${{ env.VERSION }}.exe.sha256
@@ -210,24 +176,3 @@ jobs:
             meet-zone-source-${{ env.VERSION }}.tar.gz.sha256
           draft: false
           prerelease: false
-          generate_release_notes: true
-
-      - name: Create Development Release
-        if: github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: dev-${{ env.VERSION }}-${{ github.run_number }}
-          name: "Development Build ${{ env.VERSION }}-${{ github.run_number }}"
-          files: |
-            meet-zone-windows-${{ env.VERSION }}.exe
-            meet-zone-windows-${{ env.VERSION }}.exe.sha256
-            meet-zone-macos-${{ env.VERSION }}
-            meet-zone-macos-${{ env.VERSION }}.sha256
-            meet-zone-linux-${{ env.VERSION }}
-            meet-zone-linux-${{ env.VERSION }}.sha256
-            meet-zone-source-${{ env.VERSION }}.zip
-            meet-zone-source-${{ env.VERSION }}.zip.sha256
-            meet-zone-source-${{ env.VERSION }}.tar.gz
-            meet-zone-source-${{ env.VERSION }}.tar.gz.sha256
-          draft: false
-          prerelease: true
