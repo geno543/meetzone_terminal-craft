@@ -11,7 +11,7 @@ on:
         required: false
         default: 'dev'
 
-# Strip leading “v” or use manual input
+# Strip leading "v" or use manual input
 env:
   VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
 
@@ -29,6 +29,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
+      - name: Create icon
+        run: |
+          python -c "
+          from PIL import Image
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.ico', format='ICO')
+          "
       - name: Build .exe
         run: |
           python -m PyInstaller \
@@ -37,6 +44,28 @@ jobs:
             --icon=icon.ico \
             --add-data="roster.csv;." \
             --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
             src/meet_zone/__main__.py
       - name: Checksum
         shell: powershell
@@ -64,6 +93,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
+      - name: Create icon
+        run: |
+          python -c "
+          from PIL import Image
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.png', format='PNG')
+          "
       - name: Build macOS
         run: |
           python3 -m PyInstaller \
@@ -72,6 +108,28 @@ jobs:
             --icon=icon.png \
             --add-data="roster.csv:." \
             --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
             src/meet_zone/__main__.py
       - name: Make EXE & checksum
         run: |
@@ -99,6 +157,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller cairosvg pillow
           pip install -r requirements.txt
+      - name: Create icon
+        run: |
+          python -c "
+          from PIL import Image
+          img = Image.new('RGBA', (32, 32), (0, 100, 200, 255))
+          img.save('icon.png', format='PNG')
+          "
       - name: Build Linux
         run: |
           python3 -m PyInstaller \
@@ -107,6 +172,28 @@ jobs:
             --icon=icon.png \
             --add-data="roster.csv:." \
             --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
             src/meet_zone/__main__.py
       - name: Make EXE & checksum
         run: |
@@ -132,8 +219,8 @@ jobs:
           tar czf meet-zone-source-${{ env.VERSION }}.tar.gz . --exclude=".git" --exclude="dist"
       - name: Checksums & upload
         run: |
-          sha256sum meet-zone-source-${{ env.VERSION }}.zip  > .zip.sha256
-          sha256sum meet-zone-source-${{ env.VERSION }}.tar.gz > .tar.gz.sha256
+          sha256sum meet-zone-source-${{ env.VERSION }}.zip  > meet-zone-source-${{ env.VERSION }}.zip.sha256
+          sha256sum meet-zone-source-${{ env.VERSION }}.tar.gz > meet-zone-source-${{ env.VERSION }}.tar.gz.sha256
         shell: bash
       - name: Upload source
         uses: actions/upload-artifact@v3
@@ -155,7 +242,7 @@ jobs:
       - name: Gather into root
         run: |
           for plat in win-${{ env.VERSION }} mac-${{ env.VERSION }} linux-${{ env.VERSION }}; do
-            cp $plat/dist/* .
+            cp $plat/* .
           done
           cp src-${{ env.VERSION }}/* .
       - name: Create Release
