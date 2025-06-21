@@ -2,7 +2,8 @@ name: Create Release
 
 on:
   push:
-    branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -14,10 +15,15 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+  actions: read
+  packages: write
+
 jobs:
   create-tag:
     runs-on: ubuntu-latest
-    if: github.event.inputs.create_tag == 'true' || github.event_name == 'push'
+    if: github.event.inputs.create_tag == 'true' && github.event_name == 'workflow_dispatch'
     outputs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
       version: ${{ steps.create_tag.outputs.version }}
@@ -30,11 +36,7 @@ jobs:
       - name: Set version
         id: set_version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="1.0.1"
-          fi
+          VERSION="${{ github.event.inputs.version }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag_name=v$VERSION" >> $GITHUB_OUTPUT
       
@@ -58,13 +60,34 @@ jobs:
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.get_version.outputs.tag_name }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Get version from tag or input
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            TAG_NAME="v$VERSION"
+          else
+            # Extract from tag push
+            TAG_NAME="${{ github.ref_name }}"
+            VERSION="${TAG_NAME#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION, tag: $TAG_NAME"
+
   build-windows:
-    needs: create-tag
+    needs: [get-version]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.create-tag.outputs.tag_name }}
+          ref: ${{ needs.get-version.outputs.tag_name }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -80,7 +103,6 @@ jobs:
       - name: Create icon files
         run: |
           echo "Creating placeholder icon files..."
-          # Create a simple ICO file (placeholder)
           python -c "
           from PIL import Image
           import io
@@ -93,28 +115,28 @@ jobs:
       
       - name: Build Windows executable
         run: |
-          python -m PyInstaller --name="meet-zone-windows-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Generate checksum
         shell: powershell
         run: |
-          Get-FileHash dist/meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash | Out-File -FilePath dist/meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe.sha256 -Encoding ascii
+          Get-FileHash dist/meet-zone-windows-${{ needs.get-version.outputs.version }}.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash | Out-File -FilePath dist/meet-zone-windows-${{ needs.get-version.outputs.version }}.exe.sha256 -Encoding ascii
       
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ needs.create-tag.outputs.version }}
+          name: windows-${{ needs.get-version.outputs.version }}
           path: |
-            dist/meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe
-            dist/meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe.sha256
+            dist/meet-zone-windows-${{ needs.get-version.outputs.version }}.exe
+            dist/meet-zone-windows-${{ needs.get-version.outputs.version }}.exe.sha256
 
   build-macos:
-    needs: create-tag
+    needs: [get-version]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.create-tag.outputs.tag_name }}
+          ref: ${{ needs.get-version.outputs.tag_name }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -140,28 +162,28 @@ jobs:
       
       - name: Build macOS executable
         run: |
-          python -m PyInstaller --name="meet-zone-macos-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-macos-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
-          chmod +x dist/meet-zone-macos-${{ needs.create-tag.outputs.version }}
-          shasum -a 256 dist/meet-zone-macos-${{ needs.create-tag.outputs.version }} > dist/meet-zone-macos-${{ needs.create-tag.outputs.version }}.sha256
+          chmod +x dist/meet-zone-macos-${{ needs.get-version.outputs.version }}
+          shasum -a 256 dist/meet-zone-macos-${{ needs.get-version.outputs.version }} > dist/meet-zone-macos-${{ needs.get-version.outputs.version }}.sha256
       
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ needs.create-tag.outputs.version }}
+          name: macos-${{ needs.get-version.outputs.version }}
           path: |
-            dist/meet-zone-macos-${{ needs.create-tag.outputs.version }}
-            dist/meet-zone-macos-${{ needs.create-tag.outputs.version }}.sha256
+            dist/meet-zone-macos-${{ needs.get-version.outputs.version }}
+            dist/meet-zone-macos-${{ needs.get-version.outputs.version }}.sha256
 
   build-linux:
-    needs: create-tag
+    needs: [get-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.create-tag.outputs.tag_name }}
+          ref: ${{ needs.get-version.outputs.tag_name }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -187,28 +209,28 @@ jobs:
       
       - name: Build Linux executable
         run: |
-          python -m PyInstaller --name="meet-zone-linux-${{ needs.create-tag.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-linux-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
-          chmod +x dist/meet-zone-linux-${{ needs.create-tag.outputs.version }}
-          sha256sum dist/meet-zone-linux-${{ needs.create-tag.outputs.version }} > dist/meet-zone-linux-${{ needs.create-tag.outputs.version }}.sha256
+          chmod +x dist/meet-zone-linux-${{ needs.get-version.outputs.version }}
+          sha256sum dist/meet-zone-linux-${{ needs.get-version.outputs.version }} > dist/meet-zone-linux-${{ needs.get-version.outputs.version }}.sha256
       
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ needs.create-tag.outputs.version }}
+          name: linux-${{ needs.get-version.outputs.version }}
           path: |
-            dist/meet-zone-linux-${{ needs.create-tag.outputs.version }}
-            dist/meet-zone-linux-${{ needs.create-tag.outputs.version }}.sha256
+            dist/meet-zone-linux-${{ needs.get-version.outputs.version }}
+            dist/meet-zone-linux-${{ needs.get-version.outputs.version }}.sha256
 
   create-source:
-    needs: create-tag
+    needs: [get-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.create-tag.outputs.tag_name }}
+          ref: ${{ needs.get-version.outputs.tag_name }}
           fetch-depth: 0
       
       - name: Prepare clean source directory
@@ -252,14 +274,14 @@ jobs:
           cd /tmp
           
           # Create ZIP archive
-          zip -r meet-zone-source-${{ needs.create-tag.outputs.version }}.zip meet-zone-source/
+          zip -r meet-zone-source-${{ needs.get-version.outputs.version }}.zip meet-zone-source/
           
           # Create TAR.GZ archive with --warning=no-file-changed to ignore file change warnings
-          tar --warning=no-file-changed -czf meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz meet-zone-source/
+          tar --warning=no-file-changed -czf meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz meet-zone-source/
           
           # Move archives back to workspace
-          mv meet-zone-source-${{ needs.create-tag.outputs.version }}.zip $GITHUB_WORKSPACE/
-          mv meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz $GITHUB_WORKSPACE/
+          mv meet-zone-source-${{ needs.get-version.outputs.version }}.zip $GITHUB_WORKSPACE/
+          mv meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz $GITHUB_WORKSPACE/
           
           # Return to workspace
           cd $GITHUB_WORKSPACE
@@ -270,30 +292,32 @@ jobs:
       - name: Generate checksums
         run: |
           echo "Generating checksums..."
-          sha256sum meet-zone-source-${{ needs.create-tag.outputs.version }}.zip > meet-zone-source-${{ needs.create-tag.outputs.version }}.zip.sha256
-          sha256sum meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz > meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz.sha256
+          sha256sum meet-zone-source-${{ needs.get-version.outputs.version }}.zip > meet-zone-source-${{ needs.get-version.outputs.version }}.zip.sha256
+          sha256sum meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz > meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz.sha256
           
           echo "Checksums created:"
-          cat meet-zone-source-${{ needs.create-tag.outputs.version }}.zip.sha256
-          cat meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz.sha256
+          cat meet-zone-source-${{ needs.get-version.outputs.version }}.zip.sha256
+          cat meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz.sha256
       
       - name: Upload source artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: source-${{ needs.create-tag.outputs.version }}
+          name: source-${{ needs.get-version.outputs.version }}
           path: |
-            meet-zone-source-${{ needs.create-tag.outputs.version }}.zip
-            meet-zone-source-${{ needs.create-tag.outputs.version }}.zip.sha256
-            meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz
-            meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz.sha256
+            meet-zone-source-${{ needs.get-version.outputs.version }}.zip
+            meet-zone-source-${{ needs.get-version.outputs.version }}.zip.sha256
+            meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz
+            meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz.sha256
 
   create-release:
-    needs: [create-tag, build-windows, build-macos, build-linux, create-source]
+    needs: [get-version, build-windows, build-macos, build-linux, create-source]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.create-tag.outputs.tag_name }}
+          ref: ${{ needs.get-version.outputs.tag_name }}
       
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -308,16 +332,16 @@ jobs:
           ls -la release-files/
       
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.create-tag.outputs.tag_name }}
-          name: "Meet-Zone v${{ needs.create-tag.outputs.version }}"
+          tag_name: ${{ needs.get-version.outputs.tag_name }}
+          name: "Meet-Zone v${{ needs.get-version.outputs.version }}"
           body: |
-            # Meet-Zone v${{ needs.create-tag.outputs.version }}
+            # Meet-Zone v${{ needs.get-version.outputs.version }}
             
             A professional terminal application for finding optimal meeting times across multiple time zones.
             
-            ## 🚀 What's New in v${{ needs.create-tag.outputs.version }}
+            ## 🚀 What's New in v${{ needs.get-version.outputs.version }}
             
             - Enhanced terminal-based UI with improved tabbed interface
             - Better error handling and validation for user inputs
@@ -334,27 +358,27 @@ jobs:
             
             | Platform | File | Description |
             |----------|------|-------------|
-            | Windows | `meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe` | Windows executable |
-            | macOS | `meet-zone-macos-${{ needs.create-tag.outputs.version }}` | macOS executable |
-            | Linux | `meet-zone-linux-${{ needs.create-tag.outputs.version }}` | Linux executable |
-            | Source | `meet-zone-source-${{ needs.create-tag.outputs.version }}.zip` | Source code (ZIP) |
-            | Source | `meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz` | Source code (TAR.GZ) |
+            | Windows | `meet-zone-windows-${{ needs.get-version.outputs.version }}.exe` | Windows executable |
+            | macOS | `meet-zone-macos-${{ needs.get-version.outputs.version }}` | macOS executable |
+            | Linux | `meet-zone-linux-${{ needs.get-version.outputs.version }}` | Linux executable |
+            | Source | `meet-zone-source-${{ needs.get-version.outputs.version }}.zip` | Source code (ZIP) |
+            | Source | `meet-zone-source-${{ needs.get-version.outputs.version }}.tar.gz` | Source code (TAR.GZ) |
             
             ## 🔧 Installation
             
             ### Windows
             ```cmd
             # Download and run directly
-            meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe
+            meet-zone-windows-${{ needs.get-version.outputs.version }}.exe
             ```
             
             ### macOS/Linux
             ```bash
             # Make executable
-            chmod +x meet-zone-macos-${{ needs.create-tag.outputs.version }}
+            chmod +x meet-zone-macos-${{ needs.get-version.outputs.version }}
             
             # Run
-            ./meet-zone-macos-${{ needs.create-tag.outputs.version }}
+            ./meet-zone-macos-${{ needs.get-version.outputs.version }}
             ```
             
             ## 🔐 Verification
@@ -363,13 +387,13 @@ jobs:
             
             ```bash
             # Windows (PowerShell)
-            Get-FileHash -Algorithm SHA256 meet-zone-windows-${{ needs.create-tag.outputs.version }}.exe
+            Get-FileHash -Algorithm SHA256 meet-zone-windows-${{ needs.get-version.outputs.version }}.exe
             
             # macOS
-            shasum -a 256 meet-zone-macos-${{ needs.create-tag.outputs.version }}
+            shasum -a 256 meet-zone-macos-${{ needs.get-version.outputs.version }}
             
             # Linux
-            sha256sum meet-zone-linux-${{ needs.create-tag.outputs.version }}
+            sha256sum meet-zone-linux-${{ needs.get-version.outputs.version }}
             ```
             
             ## 📖 Usage
