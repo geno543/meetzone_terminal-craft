@@ -1,0 +1,145 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller cairosvg pillow
+          pip install -r requirements.txt
+      - name: Convert SVG to ICO
+        run: |
+          python -c "from cairosvg import svg2png; from PIL import Image; svg2png(url='icon.svg', write_to='icon.png'); img = Image.open('icon.png'); img.save('icon.ico')"
+      - name: Build executable
+        run: |
+          pyinstaller --name="meet-zone-windows" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath --hidden-import=pkg_resources.py2_warn src/meet_zone/__main__.py
+      - name: Generate SHA256 checksum
+        run: |
+          Get-FileHash -Algorithm SHA256 -Path dist/meet-zone-windows.exe | Select-Object -ExpandProperty Hash > dist/meet-zone-windows.exe.sha256
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: meet-zone-windows
+          path: |
+            dist/meet-zone-windows.exe
+            dist/meet-zone-windows.exe.sha256
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller cairosvg pillow
+          pip install -r requirements.txt
+      - name: Convert SVG to PNG
+        run: |
+          python -c "from cairosvg import svg2png; svg2png(url='icon.svg', write_to='icon.png')"
+      - name: Build executable
+        run: |
+          pyinstaller --name="meet-zone-macos" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath --hidden-import=pkg_resources.py2_warn src/meet_zone/__main__.py
+      - name: Generate SHA256 checksum
+        run: |
+          shasum -a 256 dist/meet-zone-macos > dist/meet-zone-macos.sha256
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: meet-zone-macos
+          path: |
+            dist/meet-zone-macos
+            dist/meet-zone-macos.sha256
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller cairosvg pillow
+          pip install -r requirements.txt
+      - name: Convert SVG to PNG
+        run: |
+          python -c "from cairosvg import svg2png; svg2png(url='icon.svg', write_to='icon.png')"
+      - name: Build executable
+        run: |
+          pyinstaller --name="meet-zone-linux" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath --hidden-import=pkg_resources.py2_warn src/meet_zone/__main__.py
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum dist/meet-zone-linux > dist/meet-zone-linux.sha256
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: meet-zone-linux
+          path: |
+            dist/meet-zone-linux
+            dist/meet-zone-linux.sha256
+
+  create-source-archives:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Create ZIP archive
+        run: |
+          zip -r meet-zone-source.zip . -x "*.git*" "*__pycache__*" "*.pytest_cache*" "*.venv*" "*dist*" "*build*"
+      - name: Create TAR.GZ archive
+        run: |
+          tar --exclude=".git" --exclude="__pycache__" --exclude=".pytest_cache" --exclude=".venv" --exclude="dist" --exclude="build" -czf meet-zone-source.tar.gz .
+      - name: Generate SHA256 checksums
+        run: |
+          sha256sum meet-zone-source.zip > meet-zone-source.zip.sha256
+          sha256sum meet-zone-source.tar.gz > meet-zone-source.tar.gz.sha256
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: source-code
+          path: |
+            meet-zone-source.zip
+            meet-zone-source.zip.sha256
+            meet-zone-source.tar.gz
+            meet-zone-source.tar.gz.sha256
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux, create-source-archives]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            meet-zone-windows/meet-zone-windows.exe
+            meet-zone-windows/meet-zone-windows.exe.sha256
+            meet-zone-macos/meet-zone-macos
+            meet-zone-macos/meet-zone-macos.sha256
+            meet-zone-linux/meet-zone-linux
+            meet-zone-linux/meet-zone-linux.sha256
+            source-code/meet-zone-source.zip
+            source-code/meet-zone-source.zip.sha256
+            source-code/meet-zone-source.tar.gz
+            source-code/meet-zone-source.tar.gz.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
