@@ -4,16 +4,22 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to use when manually triggered (without v prefix)'
+        required: false
+        default: 'dev'
 
-# Common strategy to strip leading “v” off the tag
+# Common strategy to strip leading "v" off the tag
 env:
-  VERSION: ${{ github.ref_name }}
+  VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
 jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v3
 
@@ -35,7 +41,7 @@ jobs:
       - name: Build executable
         run: |
           pyinstaller \
-            --name="meet-zone-windows-${VERSION}" \
+            --name="meet-zone-windows-${env:VERSION}" \
             --onefile --windowed \
             --icon=icon.ico \
             --add-data="roster.csv;." \
@@ -45,8 +51,8 @@ jobs:
 
       - name: Generate SHA256 checksum
         run: |
-          Get-FileHash -Algorithm SHA256 -Path "dist/meet-zone-windows-${VERSION}.exe" `
-            | Select-Object -ExpandProperty Hash > "dist/meet-zone-windows-${VERSION}.exe.sha256"
+          Get-FileHash -Algorithm SHA256 -Path "dist/meet-zone-windows-${env:VERSION}.exe" \
+            | Select-Object -ExpandProperty Hash > "dist/meet-zone-windows-${env:VERSION}.exe.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -59,7 +65,7 @@ jobs:
   build-macos:
     runs-on: macos-latest
     env:
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
@@ -84,6 +90,9 @@ jobs:
             --hidden-import=zoneinfo.tzpath \
             --hidden-import=pkg_resources.py2_warn \
             src/meet_zone/__main__.py
+      - name: Make executable
+        run: |
+          chmod +x "dist/meet-zone-macos-${VERSION}"
       - name: Generate SHA256 checksum
         run: |
           shasum -a 256 "dist/meet-zone-macos-${VERSION}" > "dist/meet-zone-macos-${VERSION}.sha256"
@@ -98,7 +107,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
@@ -123,6 +132,9 @@ jobs:
             --hidden-import=zoneinfo.tzpath \
             --hidden-import=pkg_resources.py2_warn \
             src/meet_zone/__main__.py
+      - name: Make executable
+        run: |
+          chmod +x "dist/meet-zone-linux-${VERSION}"
       - name: Generate SHA256 checksum
         run: |
           sha256sum "dist/meet-zone-linux-${VERSION}" > "dist/meet-zone-linux-${VERSION}.sha256"
@@ -137,7 +149,7 @@ jobs:
   create-source-archives:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v3
       - name: Create ZIP archive
@@ -171,13 +183,17 @@ jobs:
       - create-source-archives
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v3
 
+      - name: List downloaded artifacts
+        run: find . -type f | sort
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
+        if: github.event_name != 'workflow_dispatch'
         with:
           tag_name: ${{ github.ref }}
           # This becomes the release title
@@ -196,3 +212,23 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+
+      - name: Create Development Release
+        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: dev-${{ env.VERSION }}-${{ github.run_number }}
+          name: "Development Build ${{ env.VERSION }}-${{ github.run_number }}"
+          files: |
+            meet-zone-windows-${{ env.VERSION }}/meet-zone-windows-${{ env.VERSION }}.exe
+            meet-zone-windows-${{ env.VERSION }}/meet-zone-windows-${{ env.VERSION }}.exe.sha256
+            meet-zone-macos-${{ env.VERSION }}/meet-zone-macos-${{ env.VERSION }}
+            meet-zone-macos-${{ env.VERSION }}/meet-zone-macos-${{ env.VERSION }}.sha256
+            meet-zone-linux-${{ env.VERSION }}/meet-zone-linux-${{ env.VERSION }}
+            meet-zone-linux-${{ env.VERSION }}/meet-zone-linux-${{ env.VERSION }}.sha256
+            source-code-${{ env.VERSION }}/meet-zone-source-${{ env.VERSION }}.zip
+            source-code-${{ env.VERSION }}/meet-zone-source-${{ env.VERSION }}.zip.sha256
+            source-code-${{ env.VERSION }}/meet-zone-source-${{ env.VERSION }}.tar.gz
+            source-code-${{ env.VERSION }}/meet-zone-source-${{ env.VERSION }}.tar.gz.sha256
+          draft: false
+          prerelease: true
