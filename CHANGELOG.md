@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v1.0.0] - YYYY-MM-DD
+## [v1.0.1] - 2025-01-27
+
+### Added
+- Enhanced terminal-based UI with improved tabbed interface
+- Better error handling and validation for user inputs
+- Improved time zone selection with comprehensive timezone list
+- Enhanced meeting slot scoring algorithm with configurable prioritization
+- Better visual feedback with color-coded status messages
+
+### Changed
+- Improved UI layout with better responsive design
+- Enhanced participant management with clearer form validation
+- Better meeting time calculation with more accurate availability detection
+- Improved error messages and user feedback
+
+### Fixed
+- Fixed time parsing validation issues
+- Improved participant removal functionality
+- Better handling of edge cases in meeting slot calculation
+- Fixed UI responsiveness issues
+
+## [v1.0.0] - 2024-12-01
 
 ### Added
 - Initial release of Meet-Zone
