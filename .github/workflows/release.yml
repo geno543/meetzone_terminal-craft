@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.0.1)'
+        description: 'Release version (e.g., 1.0.2)'
         required: true
-        default: '1.0.1'
+        default: '1.0.2'
       create_tag:
         description: 'Create new tag'
         type: boolean
@@ -115,7 +115,35 @@ jobs:
       
       - name: Build Windows executable
         run: |
-          python -m PyInstaller --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller \
+            --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" \
+            --onefile --windowed \
+            --icon=icon.ico \
+            --add-data="roster.csv;." \
+            --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
+            src/meet_zone/__main__.py
       
       - name: Generate checksum
         shell: powershell
@@ -162,7 +190,35 @@ jobs:
       
       - name: Build macOS executable
         run: |
-          python -m PyInstaller --name="meet-zone-macos-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller \
+            --name="meet-zone-macos-${{ needs.get-version.outputs.version }}" \
+            --onefile --windowed \
+            --icon=icon.png \
+            --add-data="roster.csv:." \
+            --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
+            src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
@@ -209,7 +265,35 @@ jobs:
       
       - name: Build Linux executable
         run: |
-          python -m PyInstaller --name="meet-zone-linux-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.png --add-data="roster.csv:." --hidden-import=zoneinfo.tzpath src/meet_zone/__main__.py
+          python -m PyInstaller \
+            --name="meet-zone-linux-${{ needs.get-version.outputs.version }}" \
+            --onefile --windowed \
+            --icon=icon.png \
+            --add-data="roster.csv:." \
+            --hidden-import=zoneinfo.tzpath \
+            --hidden-import=textual \
+            --hidden-import=textual.app \
+            --hidden-import=textual.widgets \
+            --hidden-import=textual.widgets.button \
+            --hidden-import=textual.widgets.data_table \
+            --hidden-import=textual.widgets.footer \
+            --hidden-import=textual.widgets.header \
+            --hidden-import=textual.widgets.input \
+            --hidden-import=textual.widgets.label \
+            --hidden-import=textual.widgets.select \
+            --hidden-import=textual.widgets.static \
+            --hidden-import=textual.widgets.tabbed_content \
+            --hidden-import=textual.widgets.tab_pane \
+            --hidden-import=textual.containers \
+            --hidden-import=textual.containers.container \
+            --hidden-import=textual.containers.horizontal \
+            --hidden-import=textual.containers.vertical \
+            --hidden-import=textual.reactive \
+            --hidden-import=textual.validation \
+            --hidden-import=textual.coordinate \
+            --hidden-import=pytz \
+            --collect-all=textual \
+            src/meet_zone/__main__.py
       
       - name: Make executable and generate checksum
         run: |
@@ -343,14 +427,11 @@ jobs:
             
             ## 🚀 What's New in v${{ needs.get-version.outputs.version }}
             
-            - Enhanced terminal-based UI with improved tabbed interface
-            - Better error handling and validation for user inputs
-            - Improved time zone selection with comprehensive timezone list
-            - Enhanced meeting slot scoring algorithm with configurable prioritization
-            - Better visual feedback with color-coded status messages
-            - Fixed time parsing validation issues
-            - Improved participant removal functionality
-            - Better handling of edge cases in meeting slot calculation
+            - **Fixed PyInstaller build configuration** to include all required Textual modules
+            - **Added comprehensive hidden imports** for textual.widgets.tab_pane and related modules
+            - **Fixed "No module named 'textual.widgets.tab_pane'" error** in executables
+            - **Enhanced build process** with --collect-all=textual flag for complete module inclusion
+            - **Improved build reliability** across all platforms (Windows, macOS, Linux)
             
             ## 📥 Downloads
             
