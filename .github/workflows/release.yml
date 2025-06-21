@@ -115,35 +115,7 @@ jobs:
       
       - name: Build Windows executable
         run: |
-          python -m PyInstaller \
-            --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" \
-            --onefile --windowed \
-            --icon=icon.ico \
-            --add-data="roster.csv;." \
-            --hidden-import=zoneinfo.tzpath \
-            --hidden-import=textual \
-            --hidden-import=textual.app \
-            --hidden-import=textual.widgets \
-            --hidden-import=textual.widgets.button \
-            --hidden-import=textual.widgets.data_table \
-            --hidden-import=textual.widgets.footer \
-            --hidden-import=textual.widgets.header \
-            --hidden-import=textual.widgets.input \
-            --hidden-import=textual.widgets.label \
-            --hidden-import=textual.widgets.select \
-            --hidden-import=textual.widgets.static \
-            --hidden-import=textual.widgets.tabbed_content \
-            --hidden-import=textual.widgets.tab_pane \
-            --hidden-import=textual.containers \
-            --hidden-import=textual.containers.container \
-            --hidden-import=textual.containers.horizontal \
-            --hidden-import=textual.containers.vertical \
-            --hidden-import=textual.reactive \
-            --hidden-import=textual.validation \
-            --hidden-import=textual.coordinate \
-            --hidden-import=pytz \
-            --collect-all=textual \
-            src/meet_zone/__main__.py
+          python -m PyInstaller --name="meet-zone-windows-${{ needs.get-version.outputs.version }}" --onefile --windowed --icon=icon.ico --add-data="roster.csv;." --hidden-import=zoneinfo.tzpath --hidden-import=textual --hidden-import=textual.app --hidden-import=textual.widgets --hidden-import=textual.widgets.button --hidden-import=textual.widgets.data_table --hidden-import=textual.widgets.footer --hidden-import=textual.widgets.header --hidden-import=textual.widgets.input --hidden-import=textual.widgets.label --hidden-import=textual.widgets.select --hidden-import=textual.widgets.static --hidden-import=textual.widgets.tabbed_content --hidden-import=textual.widgets.tab_pane --hidden-import=textual.containers --hidden-import=textual.containers.container --hidden-import=textual.containers.horizontal --hidden-import=textual.containers.vertical --hidden-import=textual.reactive --hidden-import=textual.validation --hidden-import=textual.coordinate --hidden-import=pytz --collect-all=textual src/meet_zone/__main__.py
       
       - name: Generate checksum
         shell: powershell
