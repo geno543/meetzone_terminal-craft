@@ -211,39 +211,58 @@ jobs:
           ref: ${{ needs.create-tag.outputs.tag_name }}
           fetch-depth: 0
       
-      - name: Debug - List files
+      - name: Prepare clean source directory
         run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Git status:"
-          git status || echo "Git status failed"
-          echo "Current commit:"
-          git rev-parse HEAD || echo "Git rev-parse failed"
+          echo "Preparing clean source directory..."
+          
+          # Create a temporary directory for clean source
+          mkdir -p /tmp/meet-zone-source
+          
+          # Copy only the files we want in the source archive
+          cp -r src /tmp/meet-zone-source/
+          cp requirements.txt /tmp/meet-zone-source/
+          cp README.md /tmp/meet-zone-source/
+          cp CHANGELOG.md /tmp/meet-zone-source/
+          cp pyproject.toml /tmp/meet-zone-source/
+          cp roster.csv /tmp/meet-zone-source/
+          
+          # Copy icon.svg if it exists
+          if [ -f icon.svg ]; then
+            cp icon.svg /tmp/meet-zone-source/
+          fi
+          
+          # Copy .github directory if it exists
+          if [ -d .github ]; then
+            cp -r .github /tmp/meet-zone-source/
+          fi
+          
+          # Copy docs directory if it exists
+          if [ -d docs ]; then
+            cp -r docs /tmp/meet-zone-source/
+          fi
+          
+          echo "Source directory prepared:"
+          ls -la /tmp/meet-zone-source/
       
       - name: Create source archives
         run: |
           echo "Creating source archives..."
           
-          # Create ZIP archive excluding unnecessary files
-          zip -r meet-zone-source-${{ needs.create-tag.outputs.version }}.zip . \
-            -x "*.git*" \
-            -x "dist/*" \
-            -x "*/__pycache__/*" \
-            -x "*.pyc" \
-            -x "*.pyo" \
-            -x ".DS_Store" \
-            -x "*.log"
+          # Change to temp directory to avoid path issues
+          cd /tmp
           
-          # Create TAR.GZ archive excluding unnecessary files  
-          tar czf meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz \
-            --exclude=".git" \
-            --exclude="dist" \
-            --exclude="__pycache__" \
-            --exclude="*.pyc" \
-            --exclude="*.pyo" \
-            --exclude=".DS_Store" \
-            --exclude="*.log" \
-            .
+          # Create ZIP archive
+          zip -r meet-zone-source-${{ needs.create-tag.outputs.version }}.zip meet-zone-source/
+          
+          # Create TAR.GZ archive with --warning=no-file-changed to ignore file change warnings
+          tar --warning=no-file-changed -czf meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz meet-zone-source/
+          
+          # Move archives back to workspace
+          mv meet-zone-source-${{ needs.create-tag.outputs.version }}.zip $GITHUB_WORKSPACE/
+          mv meet-zone-source-${{ needs.create-tag.outputs.version }}.tar.gz $GITHUB_WORKSPACE/
+          
+          # Return to workspace
+          cd $GITHUB_WORKSPACE
           
           echo "Archives created successfully:"
           ls -la meet-zone-source-*
