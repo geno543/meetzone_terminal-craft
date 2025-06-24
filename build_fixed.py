@@ -156,8 +156,8 @@ def build_executable():
             if os.path.exists(exe_path):
                 print(f"Executable location: {exe_path}")
                 
-                # Make executable on Unix systems (with chmod availability check)
-                if sys.platform != "win32":
+                # Make executable on Unix systems (Linux and macOS only)
+                if sys.platform in ["linux", "darwin"]:
                     if hasattr(os, 'chmod'):
                         os.chmod(exe_path, 0o755)
                         print("Made executable")
