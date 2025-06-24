@@ -53,12 +53,17 @@ def is_participant_available(participant: Participant, utc_time: datetime, date:
 def get_availability_grid(participants: List[Participant], date: datetime.date, interval_minutes: int = 15) -> Dict[datetime, Set[str]]:
     """Create availability grid considering busy schedules"""
     grid: Dict[datetime, Set[str]] = {}
-    day_start = datetime.combine(date, time(0, 0)).replace(tzinfo=ZoneInfo("UTC"))
-    time_slots = [day_start + timedelta(minutes=i * interval_minutes) for i in range(24 * 60 // interval_minutes)]
     
-    # Initialize grid
-    for slot in time_slots:
-        grid[slot] = set()
+    # Create 24-hour grid starting from midnight UTC
+    day_start = datetime.combine(date, time(0, 0)).replace(tzinfo=ZoneInfo("UTC"))
+    
+    # Generate time slots for the entire day
+    num_slots = (24 * 60) // interval_minutes
+    time_slots = [day_start + timedelta(minutes=i * interval_minutes) for i in range(num_slots)]
+    
+    # Initialize all time slots
+    for slot_time in time_slots:
+        grid[slot_time] = set()
     
     # Check each participant's availability for each time slot
     for participant in participants:
@@ -66,8 +71,9 @@ def get_availability_grid(participants: List[Participant], date: datetime.date, 
             if is_participant_available(participant, slot_time, date):
                 grid[slot_time].add(participant.name)
     
-    # Return only slots with at least one available participant
-    return {k: v for k, v in grid.items() if v}
+    # Return all slots (including empty ones for debugging)
+    # But filter out completely empty slots for efficiency
+    return {k: v for k, v in grid.items() if len(v) > 0}
 
 def find_continuous_slots(grid: Dict[datetime, Set[str]], min_duration_minutes: int, interval_minutes: int = 15) -> List[TimeSlot]:
     """Find continuous time slots where participants are available"""
@@ -77,8 +83,9 @@ def find_continuous_slots(grid: Dict[datetime, Set[str]], min_duration_minutes: 
     if not sorted_times:
         return slots
     
-    min_intervals = min_duration_minutes // interval_minutes
+    min_intervals = max(1, min_duration_minutes // interval_minutes)
     
+    # Find all possible continuous slots
     for i in range(len(sorted_times)):
         start_time = sorted_times[i]
         current_participants = grid[start_time].copy()
@@ -86,33 +93,62 @@ def find_continuous_slots(grid: Dict[datetime, Set[str]], min_duration_minutes: 
         if not current_participants:
             continue
         
-        # Find the longest continuous slot starting from this time
-        for j in range(i, len(sorted_times)):
-            end_time = sorted_times[j]
+        # Extend the slot as long as possible
+        j = i
+        while j < len(sorted_times):
+            current_time = sorted_times[j]
             
-            # Check if this time slot is continuous (no gaps)
-            if j > i and (sorted_times[j] - sorted_times[j-1]).total_seconds() > interval_minutes * 60:
-                break
+            # Check for time continuity (no gaps larger than interval)
+            if j > i:
+                time_gap = (current_time - sorted_times[j-1]).total_seconds() / 60
+                if time_gap > interval_minutes * 1.5:  # Allow small gaps
+                    break
             
-            # Update available participants (intersection)
-            current_participants &= grid[end_time]
+            # Update participants (intersection - only those available throughout)
+            slot_participants = grid[current_time]
+            current_participants &= slot_participants
             
             if not current_participants:
                 break
             
-            # If we have enough duration, create a slot
-            if (j - i + 1) >= min_intervals:
-                slot_end_time = end_time + timedelta(minutes=interval_minutes)
-                slots.append(TimeSlot(
+            # If we meet minimum duration, create a slot
+            duration_intervals = j - i + 1
+            if duration_intervals >= min_intervals:
+                slot_end_time = current_time + timedelta(minutes=interval_minutes)
+                
+                # Create the time slot
+                new_slot = TimeSlot(
                     start_time=start_time,
                     end_time=slot_end_time,
                     participant_count=len(current_participants),
                     participant_names=current_participants.copy()
-                ))
+                )
+                slots.append(new_slot)
+            
+            j += 1
     
-    # Sort by duration (longest first) to prioritize longer slots
-    slots.sort(key=lambda x: (x.end_time - x.start_time).total_seconds(), reverse=True)
-    return slots
+    # Remove duplicate/overlapping slots with same participants
+    unique_slots = []
+    for slot in slots:
+        is_duplicate = False
+        for existing in unique_slots:
+            # Check if this is essentially the same slot (same participants, overlapping time)
+            if (slot.participant_names == existing.participant_names and
+                slot.start_time <= existing.end_time and
+                slot.end_time >= existing.start_time):
+                # Keep the longer one
+                if slot.get_duration_minutes() > existing.get_duration_minutes():
+                    unique_slots.remove(existing)
+                    unique_slots.append(slot)
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            unique_slots.append(slot)
+    
+    # Sort by duration (longest first)
+    unique_slots.sort(key=lambda x: x.get_duration_minutes(), reverse=True)
+    return unique_slots
 
 def find_best_slots(
     participants: List[Participant],
@@ -131,10 +167,21 @@ def find_best_slots(
     interval_minutes = 15
     
     # Generate slots for the specified date range
+    dates_to_check = []
     if show_week:
-        for i in range(7):
-            date = today + timedelta(days=i)
+        dates_to_check = [today + timedelta(days=i) for i in range(7)]
+    else:
+        dates_to_check = [today]
+    
+    for i, date in enumerate(dates_to_check):
+        try:
             grid = get_availability_grid(participants, date, interval_minutes)
+            
+            # Debug: print grid info
+            if not grid:
+                print(f"No availability found for {date}")
+                continue
+            
             slots = find_continuous_slots(grid, min_duration, interval_minutes)
             
             # Add day offset for scoring
@@ -142,13 +189,27 @@ def find_best_slots(
                 slot.day_offset = i
             
             all_slots.extend(slots)
-    else:
-        grid = get_availability_grid(participants, today, interval_minutes)
-        all_slots = find_continuous_slots(grid, min_duration, interval_minutes)
+            
+        except Exception as e:
+            print(f"Error processing date {date}: {e}")
+            continue
+    
+    if not all_slots:
+        # Try with more lenient parameters
+        print("No slots found with current parameters, trying with reduced requirements...")
         
-        # Set day offset to 0 for today
-        for slot in all_slots:
-            slot.day_offset = 0
+        # Try with shorter minimum duration
+        for i, date in enumerate(dates_to_check):
+            try:
+                grid = get_availability_grid(participants, date, interval_minutes)
+                if grid:
+                    # Try with half the minimum duration
+                    shorter_slots = find_continuous_slots(grid, max(15, min_duration // 2), interval_minutes)
+                    for slot in shorter_slots:
+                        slot.day_offset = i
+                    all_slots.extend(shorter_slots)
+            except Exception as e:
+                continue
     
     # Calculate scores for each slot
     max_participants = len(participants)
@@ -188,12 +249,16 @@ def find_best_slots(
     unique_slots = []
     for slot in all_slots:
         # Check if this slot significantly overlaps with any existing unique slot
-        # and has the same or subset of participants
         is_duplicate = False
         for unique_slot in unique_slots:
-            if (slot.start_time <= unique_slot.end_time and 
-                slot.end_time >= unique_slot.start_time and
-                slot.participant_names.issubset(unique_slot.participant_names)):
+            # More lenient overlap detection
+            overlap_start = max(slot.start_time, unique_slot.start_time)
+            overlap_end = min(slot.end_time, unique_slot.end_time)
+            overlap_minutes = (overlap_end - overlap_start).total_seconds() / 60
+            
+            # If there's significant overlap and similar participants
+            if (overlap_minutes > 15 and 
+                len(slot.participant_names & unique_slot.participant_names) >= min(len(slot.participant_names), len(unique_slot.participant_names)) * 0.8):
                 is_duplicate = True
                 break
         
