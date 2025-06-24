@@ -148,10 +148,14 @@ def build_executable():
             if os.path.exists(exe_path):
                 print(f"Executable location: {exe_path}")
                 
-                # Make executable on Unix systems
+                # Make executable on Unix systems (with chmod availability check)
                 if sys.platform != "win32":
-                    os.chmod(exe_path, 0o755)
-                    print("Made executable")
+                    if hasattr(os, 'chmod'):
+                        os.chmod(exe_path, 0o755)
+                        print("Made executable")
+                    else:
+                        print("Warning: os.chmod not available - you may need to manually set executable permissions")
+                        print(f"Run: chmod +x {exe_path}")
                 
                 # Show file size
                 size_mb = os.path.getsize(exe_path) / (1024 * 1024)
