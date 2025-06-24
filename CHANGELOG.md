@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Busy Schedule Management**: Participants can now specify when they are unavailable
+  - Add busy time slots with start/end times, optional dates, and descriptions
+  - Support for recurring weekly busy slots (e.g., "every Monday")
+  - Support for specific date busy slots (e.g., "December 25th")
+  - Support for daily recurring busy slots (applies every day)
+- **Enhanced CSV Format**: Extended CSV format to include busy schedule information
+  - Format: `name,timezone,start_time,end_time,busy_schedule`
+  - Busy schedule format: `HH:MM-HH:MM[@date/day][:description]`
+  - Multiple busy slots separated by semicolons
+- **Improved Algorithm**: Meeting time finder now considers busy schedules when calculating availability
+  - Participants marked as busy are excluded from meeting slots during those times
+  - More accurate availability calculations
+  - Better conflict detection and resolution
+- **New UI Tab**: Added dedicated "Busy Schedule" tab for managing participant availability
+  - Add/remove/clear busy time slots
+  - View all busy schedules in a comprehensive table
+  - Select participants from dropdown for easy management
+- **Enhanced Participant Display**: Participants table now shows busy schedule summary
+- **Better Time Scoring**: Algorithm now considers time of day preferences (business hours get higher scores)
+
+### Changed
+- **Improved Scheduling Algorithm**: Now accounts for busy schedules in availability calculations
+- **Enhanced UI Layout**: Added third tab for busy schedule management
+- **Better Error Handling**: More descriptive error messages for busy schedule conflicts
+- **Improved CSV Parsing**: Extended parser to handle busy schedule information
+
+### Fixed
+- **Availability Calculation**: Fixed edge cases in time zone conversion with busy schedules
+- **UI Responsiveness**: Better handling of participant selection and table updates
+
 ## [v1.0.2] - 2025-01-27
 
 ### Added

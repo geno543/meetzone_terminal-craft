@@ -1,5 +1,5 @@
-Alice,America/New_York,09:00,17:00
-Bob,Europe/London,08:30,16:30
-Charlie,Asia/Tokyo,10:00,18:00
-Diana,Australia/Sydney,08:00,16:00
-Eva,Europe/Berlin,09:30,17:30
+Alice,America/New_York,09:00,17:00,10:00-11:00@Mon:Team standup;14:00-15:00:Daily review
+Bob,Europe/London,08:30,16:30,09:00-10:00@2024-01-15:Doctor appointment;13:00-14:00@Fri:Team lunch
+Charlie,Asia/Tokyo,10:00,18:00,11:00-12:00:Lunch break;16:00-17:00@Wed:Client call
+Diana,Australia/Sydney,08:00,16:00,12:00-13:00:Lunch;09:30-10:30@Thu:Project review
+Eva,Europe/Berlin,09:30,17:30,12:30-13:30:Lunch break;15:00-16:00@Tue:One-on-one meeting

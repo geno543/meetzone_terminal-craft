@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meet-zone"
-version = "1.0.2"
-description = "Terminal app for finding optimal meeting times across time zones"
+version = "1.1.0"
+description = "Terminal app for finding optimal meeting times across time zones with busy schedule management"
 requires-python = ">=3.10"
 dependencies = [
 	"textual>=0.38.1",
