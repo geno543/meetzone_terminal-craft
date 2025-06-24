@@ -45,8 +45,9 @@ def is_participant_available(participant: Participant, utc_time: datetime, date:
             return False
     
     # Check if busy at this time (only if participant has busy slots)
-    if participant.busy_slots and participant.is_busy_at(local_time, local_date):
-        return False
+    if hasattr(participant, 'busy_slots') and participant.busy_slots:
+        if participant.is_busy_at(local_time, local_date):
+            return False
     
     return True
 
@@ -61,19 +62,20 @@ def get_availability_grid(participants: List[Participant], date: datetime.date, 
     num_slots = (24 * 60) // interval_minutes
     time_slots = [day_start + timedelta(minutes=i * interval_minutes) for i in range(num_slots)]
     
-    # Initialize all time slots
-    for slot_time in time_slots:
-        grid[slot_time] = set()
-    
     # Check each participant's availability for each time slot
-    for participant in participants:
-        for slot_time in time_slots:
+    for slot_time in time_slots:
+        available_participants = set()
+        
+        for participant in participants:
             if is_participant_available(participant, slot_time, date):
-                grid[slot_time].add(participant.name)
+                available_participants.add(participant.name)
+        
+        # Only add slots where at least one participant is available
+        if available_participants:
+            grid[slot_time] = available_participants
     
-    # Return all slots (including empty ones for debugging)
-    # But filter out completely empty slots for efficiency
-    return {k: v for k, v in grid.items() if len(v) > 0}
+    print(f"Availability grid for {date}: {len(grid)} slots with available participants")
+    return grid
 
 def find_continuous_slots(grid: Dict[datetime, Set[str]], min_duration_minutes: int, interval_minutes: int = 15) -> List[TimeSlot]:
     """Find continuous time slots where participants are available"""
@@ -81,86 +83,68 @@ def find_continuous_slots(grid: Dict[datetime, Set[str]], min_duration_minutes: 
     sorted_times = sorted(grid.keys())
     
     if not sorted_times:
+        print("No available time slots in grid")
         return slots
     
     min_intervals = max(1, min_duration_minutes // interval_minutes)
+    print(f"Looking for slots of at least {min_intervals} intervals ({min_duration_minutes} minutes)")
     
     # Find all possible continuous slots
-    i = 0
-    while i < len(sorted_times):
+    for i in range(len(sorted_times)):
         start_time = sorted_times[i]
-        current_participants = grid[start_time].copy()
         
-        if not current_participants:
-            i += 1
-            continue
-        
-        # Try to extend this slot as far as possible
-        j = i
-        last_valid_j = i
-        
-        while j < len(sorted_times):
-            current_time = sorted_times[j]
+        # Try different durations starting from this time
+        for j in range(i, len(sorted_times)):
+            end_index = j
             
-            # Check for time continuity (consecutive intervals)
-            if j > i:
-                expected_time = sorted_times[j-1] + timedelta(minutes=interval_minutes)
-                if current_time != expected_time:
-                    # Gap in time - stop extending
+            # Check if times are continuous
+            is_continuous = True
+            for k in range(i, end_index):
+                expected_next = sorted_times[k] + timedelta(minutes=interval_minutes)
+                if k + 1 < len(sorted_times) and sorted_times[k + 1] != expected_next:
+                    is_continuous = False
                     break
             
-            # Get participants available at this time
-            slot_participants = grid[current_time]
-            
-            # For the first slot, use all available participants
-            if j == i:
-                current_participants = slot_participants.copy()
-            else:
-                # For subsequent slots, only keep participants available throughout
-                current_participants &= slot_participants
-            
-            # If no participants remain, stop
-            if not current_participants:
+            if not is_continuous and end_index > i:
                 break
             
-            last_valid_j = j
+            # Calculate duration
+            duration_intervals = end_index - i + 1
             
-            # Check if we have enough duration for a valid slot
-            duration_intervals = last_valid_j - i + 1
             if duration_intervals >= min_intervals:
-                slot_end_time = sorted_times[last_valid_j] + timedelta(minutes=interval_minutes)
+                # Find participants available for the entire duration
+                available_participants = grid[sorted_times[i]].copy()
                 
-                # Create the time slot
-                new_slot = TimeSlot(
-                    start_time=start_time,
-                    end_time=slot_end_time,
-                    participant_count=len(current_participants),
-                    participant_names=current_participants.copy()
-                )
+                for k in range(i + 1, end_index + 1):
+                    available_participants &= grid[sorted_times[k]]
                 
-                # Only add if it's not a duplicate
-                is_duplicate = False
-                for existing_slot in slots:
-                    if (existing_slot.start_time == new_slot.start_time and 
-                        existing_slot.participant_names == new_slot.participant_names):
-                        # Update to longer duration if this one is longer
-                        if new_slot.get_duration_minutes() > existing_slot.get_duration_minutes():
-                            slots.remove(existing_slot)
-                            slots.append(new_slot)
-                        is_duplicate = True
-                        break
-                
-                if not is_duplicate:
-                    slots.append(new_slot)
-            
-            j += 1
-        
-        # Move to next starting point
-        i += 1
+                if available_participants:
+                    slot_end_time = sorted_times[end_index] + timedelta(minutes=interval_minutes)
+                    
+                    new_slot = TimeSlot(
+                        start_time=start_time,
+                        end_time=slot_end_time,
+                        participant_count=len(available_participants),
+                        participant_names=available_participants.copy()
+                    )
+                    
+                    # Check for duplicates
+                    is_duplicate = False
+                    for existing_slot in slots:
+                        if (existing_slot.start_time == new_slot.start_time and 
+                            existing_slot.end_time == new_slot.end_time and
+                            existing_slot.participant_names == new_slot.participant_names):
+                            is_duplicate = True
+                            break
+                    
+                    if not is_duplicate:
+                        slots.append(new_slot)
+                        print(f"Found slot: {new_slot.start_time.strftime('%H:%M')}-{new_slot.end_time.strftime('%H:%M')} with {len(available_participants)} participants")
     
     # Sort by participant count (descending), then by duration (descending)
     slots.sort(key=lambda x: (x.participant_count, x.get_duration_minutes()), reverse=True)
     
+    print(f"Found {len(slots)} total continuous slots")
     return slots
 
 def find_best_slots(
@@ -173,6 +157,7 @@ def find_best_slots(
 ) -> List[TimeSlot]:
     """Find best meeting slots considering busy schedules"""
     if not participants:
+        print("No participants provided")
         return []
     
     today = start_date or datetime.now().date()
@@ -186,25 +171,45 @@ def find_best_slots(
     else:
         dates_to_check = [today]
     
-    print(f"Checking dates: {[d.strftime('%Y-%m-%d') for d in dates_to_check]}")
+    print(f"Checking {len(dates_to_check)} dates: {[d.strftime('%Y-%m-%d') for d in dates_to_check]}")
+    print(f"Participants: {[p.name for p in participants]}")
     
     for i, date in enumerate(dates_to_check):
         try:
-            print(f"Processing {date}...")
-            grid = get_availability_grid(participants, date, interval_minutes)
+            print(f"\nProcessing {date}...")
             
-            print(f"  Found {len(grid)} time slots with available participants")
+            # Debug: Show participant working hours in UTC for this date
+            print("Participant availability (in UTC):")
+            for participant in participants:
+                start_utc = convert_to_utc(participant.start_time, participant.tz, date)
+                end_utc = convert_to_utc(participant.end_time, participant.tz, date)
+                busy_info = ""
+                if hasattr(participant, 'busy_slots') and participant.busy_slots:
+                    busy_count = len([bs for bs in participant.busy_slots 
+                                    if bs.date is None or 
+                                    (bs.recurring and bs.date.weekday() == date.weekday()) or
+                                    (not bs.recurring and bs.date == date)])
+                    busy_info = f" ({busy_count} busy slots)"
+                print(f"  {participant.name}: {start_utc.strftime('%H:%M')}-{end_utc.strftime('%H:%M')} UTC{busy_info}")
+            
+            grid = get_availability_grid(participants, date, interval_minutes)
             
             if not grid:
                 print(f"  No availability found for {date}")
                 continue
             
-            # Show some sample availability
+            # Show sample availability
             sorted_times = sorted(grid.keys())
-            print(f"  Sample times: {sorted_times[0].strftime('%H:%M')} to {sorted_times[-1].strftime('%H:%M')}")
+            print(f"  Available time range: {sorted_times[0].strftime('%H:%M')} to {sorted_times[-1].strftime('%H:%M')} UTC")
+            
+            # Show first few slots for debugging
+            print("  Sample availability:")
+            for slot_time in sorted_times[:5]:
+                available = grid[slot_time]
+                print(f"    {slot_time.strftime('%H:%M')}: {', '.join(sorted(available))}")
             
             slots = find_continuous_slots(grid, min_duration, interval_minutes)
-            print(f"  Found {len(slots)} continuous slots")
+            print(f"  Found {len(slots)} continuous slots for {date}")
             
             # Add day offset for scoring
             for slot in slots:
@@ -218,39 +223,42 @@ def find_best_slots(
             traceback.print_exc()
             continue
     
-    print(f"Total slots found: {len(all_slots)}")
+    print(f"\nTotal slots found across all dates: {len(all_slots)}")
     
     if not all_slots:
-        # Try with more lenient parameters
-        print("No slots found with current parameters, trying with reduced requirements...")
+        print("No slots found with current parameters. Trying fallback strategies...")
         
-        # Try with shorter minimum duration
+        # Fallback 1: Try with shorter minimum duration
+        print("Trying with 15-minute minimum duration...")
         for i, date in enumerate(dates_to_check):
             try:
                 grid = get_availability_grid(participants, date, interval_minutes)
                 if grid:
-                    print(f"  Trying {date} with 15-minute minimum...")
-                    # Try with 15-minute minimum
                     shorter_slots = find_continuous_slots(grid, 15, interval_minutes)
-                    print(f"  Found {len(shorter_slots)} shorter slots")
                     for slot in shorter_slots:
                         slot.day_offset = i
                     all_slots.extend(shorter_slots)
+                    print(f"  Found {len(shorter_slots)} slots with 15-min duration for {date}")
             except Exception as e:
-                print(f"  Error with reduced requirements for {date}: {e}")
+                print(f"  Error with fallback for {date}: {e}")
                 continue
+        
+        # Fallback 2: Show any availability at all
+        if not all_slots:
+            print("Still no slots. Checking basic availability...")
+            for date in dates_to_check:
+                grid = get_availability_grid(participants, date, interval_minutes)
+                if grid:
+                    print(f"  {date}: {len(grid)} time slots have some availability")
+                    # Show all available times
+                    for time_slot in sorted(grid.keys()):
+                        available = grid[time_slot]
+                        print(f"    {time_slot.strftime('%H:%M')}: {', '.join(sorted(available))}")
+                else:
+                    print(f"  {date}: No availability at all")
     
     if not all_slots:
-        print("Still no slots found. Checking basic availability...")
-        # Debug: check if anyone is available at all
-        for date in dates_to_check:
-            grid = get_availability_grid(participants, date, interval_minutes)
-            if grid:
-                print(f"  {date}: {len(grid)} available time slots")
-                # Show first few
-                for time_slot in sorted(grid.keys())[:5]:
-                    available = grid[time_slot]
-                    print(f"    {time_slot.strftime('%H:%M')}: {', '.join(available)}")
+        print("No meeting slots could be found.")
         return []
     
     # Calculate scores for each slot
@@ -312,10 +320,16 @@ def find_best_slots(
                 break
     
     print(f"Returning {len(unique_slots)} unique slots")
+    for i, slot in enumerate(unique_slots):
+        print(f"  {i+1}. {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')} UTC: {', '.join(sorted(slot.participant_names))} (score: {slot.score:.1%})")
+    
     return unique_slots if top_k <= 0 else unique_slots[:top_k]
 
 def get_participant_busy_summary(participant: Participant, date: datetime.date) -> List[str]:
     """Get a summary of participant's busy slots for a specific date"""
+    if not hasattr(participant, 'busy_slots') or not participant.busy_slots:
+        return []
+    
     busy_slots = participant.get_busy_slots_for_date(date)
     summary = []
     
@@ -336,18 +350,19 @@ def analyze_availability_conflicts(participants: List[Participant], date: dateti
         participant_conflicts = []
         
         # Check for busy slots that conflict with working hours
-        busy_slots = participant.get_busy_slots_for_date(date)
-        
-        for busy_slot in busy_slots:
-            # Check if busy slot overlaps with working hours
-            if (busy_slot.start_time < participant.end_time and 
-                busy_slot.end_time > participant.start_time):
-                
-                conflict_desc = f"Busy {busy_slot.start_time.strftime('%H:%M')}-{busy_slot.end_time.strftime('%H:%M')}"
-                if busy_slot.description:
-                    conflict_desc += f" ({busy_slot.description})"
-                
-                participant_conflicts.append(conflict_desc)
+        if hasattr(participant, 'busy_slots') and participant.busy_slots:
+            busy_slots = participant.get_busy_slots_for_date(date)
+            
+            for busy_slot in busy_slots:
+                # Check if busy slot overlaps with working hours
+                if (busy_slot.start_time < participant.end_time and 
+                    busy_slot.end_time > participant.start_time):
+                    
+                    conflict_desc = f"Busy {busy_slot.start_time.strftime('%H:%M')}-{busy_slot.end_time.strftime('%H:%M')}"
+                    if busy_slot.description:
+                        conflict_desc += f" ({busy_slot.description})"
+                    
+                    participant_conflicts.append(conflict_desc)
         
         if participant_conflicts:
             conflicts[participant.name] = participant_conflicts
@@ -372,13 +387,14 @@ def debug_availability(participants: List[Participant], date: datetime.date) -> 
         }
         
         # Get busy slots for this date
-        busy_slots = participant.get_busy_slots_for_date(date)
-        for busy_slot in busy_slots:
-            participant_info['busy_slots'].append({
-                'time': f"{busy_slot.start_time.strftime('%H:%M')}-{busy_slot.end_time.strftime('%H:%M')}",
-                'description': busy_slot.description,
-                'recurring': busy_slot.recurring
-            })
+        if hasattr(participant, 'busy_slots') and participant.busy_slots:
+            busy_slots = participant.get_busy_slots_for_date(date)
+            for busy_slot in busy_slots:
+                participant_info['busy_slots'].append({
+                    'time': f"{busy_slot.start_time.strftime('%H:%M')}-{busy_slot.end_time.strftime('%H:%M')}",
+                    'description': busy_slot.description,
+                    'recurring': busy_slot.recurring
+                })
         
         # Check availability for each hour
         for hour in range(24):
