@@ -1,6 +1,6 @@
 import csv
 from dataclasses import dataclass, field
-from datetime import time, datetime, date
+from datetime import time, datetime, date, timedelta
 from pathlib import Path
 from typing import List, Set, Tuple, Optional
 
@@ -212,7 +212,7 @@ def parse_busy_schedule(participant: Participant, busy_schedule_str: str) -> Non
 						days_ahead = weekday - today.weekday()
 						if days_ahead <= 0:
 							days_ahead += 7
-						busy_date = today + datetime.timedelta(days=days_ahead)
+						busy_date = today + timedelta(days=days_ahead)
 						recurring = True
 					else:
 						# Specific date

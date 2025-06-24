@@ -44,8 +44,8 @@ def is_participant_available(participant: Participant, utc_time: datetime, date:
         if not (participant.start_time <= local_time < participant.end_time):
             return False
     
-    # Check if busy at this time
-    if participant.is_busy_at(local_time, local_date):
+    # Check if busy at this time (only if participant has busy slots)
+    if participant.busy_slots and participant.is_busy_at(local_time, local_date):
         return False
     
     return True
@@ -245,3 +245,39 @@ def analyze_availability_conflicts(participants: List[Participant], date: dateti
             conflicts[participant.name] = participant_conflicts
     
     return conflicts
+
+def debug_availability(participants: List[Participant], date: datetime.date) -> Dict:
+    """Debug function to analyze why no meeting times are found"""
+    debug_info = {
+        'date': date.strftime('%Y-%m-%d'),
+        'participants': [],
+        'availability_summary': {}
+    }
+    
+    for participant in participants:
+        participant_info = {
+            'name': participant.name,
+            'timezone': participant.tz,
+            'working_hours': f"{participant.start_time.strftime('%H:%M')}-{participant.end_time.strftime('%H:%M')}",
+            'busy_slots': [],
+            'available_hours': []
+        }
+        
+        # Get busy slots for this date
+        busy_slots = participant.get_busy_slots_for_date(date)
+        for busy_slot in busy_slots:
+            participant_info['busy_slots'].append({
+                'time': f"{busy_slot.start_time.strftime('%H:%M')}-{busy_slot.end_time.strftime('%H:%M')}",
+                'description': busy_slot.description,
+                'recurring': busy_slot.recurring
+            })
+        
+        # Check availability for each hour
+        for hour in range(24):
+            test_time = datetime.combine(date, time(hour, 0)).replace(tzinfo=ZoneInfo("UTC"))
+            if is_participant_available(participant, test_time, date):
+                participant_info['available_hours'].append(f"{hour:02d}:00")
+        
+        debug_info['participants'].append(participant_info)
+    
+    return debug_info
